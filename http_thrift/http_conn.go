@@ -67,5 +67,6 @@ func (p *THTTPConn) Flush() error {
 	}
 
 	p.conn.Write(p.req, resp)
+	p.writeBuffer = &ClosingBuffer{bytes.NewBuffer([]byte{})}
 	return p.conn.Close()
 }
