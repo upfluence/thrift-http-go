@@ -3,10 +3,8 @@ package http_thrift
 import (
 	"bytes"
 	"github.com/upfluence/thrift/lib/go/thrift"
-	"log"
 	"net/http"
 	"net/http/httputil"
-	"strconv"
 )
 
 type THTTPConn struct {
@@ -67,8 +65,7 @@ func (p *THTTPConn) Flush() error {
 		Header:        make(http.Header),
 		ContentLength: int64(p.writeBuffer.Len()),
 	}
-	resp.Header.Set("Content-Length", strconv.Itoa(p.writeBuffer.Len()))
-	log.Println(strconv.Itoa(p.writeBuffer.Len()))
+
 	p.conn.Write(p.req, resp)
 	return p.conn.Close()
 }
