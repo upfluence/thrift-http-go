@@ -2,77 +2,41 @@ package http_thrift
 
 import (
 	"errors"
+	"net"
 	"net/http"
 	"sync"
 
 	"github.com/upfluence/thrift/lib/go/thrift"
 )
 
-type THTTPRequest struct {
-	w    *http.ResponseWriter
-	r    *http.Request
-	lock chan bool
-}
-
-func (d *THTTPRequest) Open() error {
-	return nil
-}
-
-func (d *THTTPRequest) IsOpen() bool {
-	return true
-}
-
-func (d *THTTPRequest) Close() error {
-	d.lock <- true
-	return nil
-}
-
-func (d *THTTPRequest) Read(buf []byte) (int, error) {
-	return d.r.Body.Read(buf)
-}
-
-func (d *THTTPRequest) Write(buf []byte) (int, error) {
-	return (*d.w).Write(buf)
-}
-
-func (d *THTTPRequest) Flush() error {
-	d.lock <- true
-
-	return nil
-}
-
 type THTTPServer struct {
 	server     *http.Server
+	listener   net.Listener
 	deliveries chan *THTTPRequest
 
 	mu          sync.RWMutex
 	interrupted bool
 }
 
-type HTTPHandler struct {
-	server *THTTPServer
-}
-
-func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	req := &THTTPRequest{&w, r, make(chan bool)}
-	h.server.deliveries <- req
-
-	<-req.lock
-}
-
 func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
-	thriftServer := &THTTPServer{deliveries: make(chan *THTTPRequest)}
+	l, err := net.Listen("tcp", listenAddr)
 
-	thriftServer.server = &http.Server{
-		Addr:    listenAddr,
-		Handler: &HTTPHandler{thriftServer},
+	if err != nil {
+		return nil, err
 	}
+
+	thriftServer := &THTTPServer{
+		deliveries: make(chan *THTTPRequest),
+		listener:   l,
+	}
+
+	thriftServer.server = &http.Server{Handler: &HTTPHandler{thriftServer}}
 
 	return thriftServer, nil
 }
 
 func (p *THTTPServer) Listen() error {
-	go p.server.ListenAndServe()
+	go p.server.Serve(p.listener)
 
 	return nil
 }
@@ -90,7 +54,7 @@ func (s *THTTPServer) Accept() (thrift.TTransport, error) {
 }
 
 func (p *THTTPServer) Close() error {
-	return nil
+	return p.listener.Close()
 }
 
 func (p *THTTPServer) Interrupt() error {
