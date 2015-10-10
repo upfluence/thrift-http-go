@@ -1,62 +1,95 @@
 package http_thrift
 
 import (
-	"net"
-	"net/http/httputil"
+	"errors"
+	"net/http"
 	"sync"
 
 	"github.com/upfluence/thrift/lib/go/thrift"
 )
 
+type THTTPRequest struct {
+	w    *http.ResponseWriter
+	r    *http.Request
+	lock chan bool
+}
+
+func (d *THTTPRequest) Open() error {
+	return nil
+}
+
+func (d *THTTPRequest) IsOpen() bool {
+	return true
+}
+
+func (d *THTTPRequest) Close() error {
+	d.lock <- true
+	return nil
+}
+
+func (d *THTTPRequest) Read(buf []byte) (int, error) {
+	return d.r.Body.Read(buf)
+}
+
+func (d *THTTPRequest) Write(buf []byte) (int, error) {
+	return (*d.w).Write(buf)
+}
+
+func (d *THTTPRequest) Flush() error {
+	d.lock <- true
+
+	return nil
+}
+
 type THTTPServer struct {
-	addr     net.Addr
-	listener net.Listener
+	server     *http.Server
+	deliveries chan *THTTPRequest
 
 	mu          sync.RWMutex
 	interrupted bool
 }
 
+type HTTPHandler struct {
+	server *THTTPServer
+}
+
+func (h *HTTPHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	req := &THTTPRequest{&w, r, make(chan bool)}
+	h.server.deliveries <- req
+
+	<-req.lock
+}
+
 func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
-	addr, err := net.ResolveTCPAddr("tcp", listenAddr)
-	if err != nil {
-		return nil, err
+	thriftServer := &THTTPServer{deliveries: make(chan *THTTPRequest)}
+
+	thriftServer.server = &http.Server{
+		Addr:    listenAddr,
+		Handler: &HTTPHandler{thriftServer},
 	}
-	return &THTTPServer{addr: addr}, nil
+
+	return thriftServer, nil
 }
 
 func (p *THTTPServer) Listen() error {
-	if p.IsListening() {
-		return nil
-	}
-	l, err := net.Listen(p.addr.Network(), p.addr.String())
-	if err != nil {
-		return err
-	}
-	p.listener = l
+	go p.server.ListenAndServe()
+
 	return nil
 }
 
-func (p *THTTPServer) Accept() (thrift.TTransport, error) {
-	conn, err := p.listener.Accept()
+func (s *THTTPServer) Accept() (thrift.TTransport, error) {
+	s.mu.RLock()
+	interrupted := s.interrupted
+	s.mu.RUnlock()
 
-	if err != nil {
-		return nil, thrift.NewTTransportExceptionFromError(err)
+	if interrupted {
+		return nil, errors.New("Transport Interrupted")
 	}
 
-	return NewTHTTPConn(httputil.NewServerConn(conn, nil)), nil
-}
-
-func (p *THTTPServer) Open() error {
-	return p.Listen()
+	return <-s.deliveries, nil
 }
 
 func (p *THTTPServer) Close() error {
-	defer func() {
-		p.listener = nil
-	}()
-	if p.IsListening() {
-		return p.listener.Close()
-	}
 	return nil
 }
 
@@ -65,8 +98,4 @@ func (p *THTTPServer) Interrupt() error {
 	defer p.mu.Unlock()
 	p.interrupted = true
 	return nil
-}
-
-func (p *THTTPServer) IsListening() bool {
-	return p.listener != nil
 }
