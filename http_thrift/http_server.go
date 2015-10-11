@@ -11,11 +11,21 @@ import (
 
 type THTTPServer struct {
 	server     *http.Server
-	listener   net.Listener
+	listener   *net.Listener
 	deliveries chan *THTTPRequest
 
 	mu          sync.RWMutex
 	interrupted bool
+}
+
+func NewTHTTPServerFromMux(
+	mux *http.ServeMux,
+	pattern string,
+) (*THTTPServer, error) {
+	server := &THTTPServer{deliveries: make(chan *THTTPRequest)}
+	mux.Handle(pattern, &HTTPHandler{server})
+
+	return server, nil
 }
 
 func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
@@ -27,7 +37,7 @@ func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
 
 	thriftServer := &THTTPServer{
 		deliveries: make(chan *THTTPRequest),
-		listener:   l,
+		listener:   &l,
 	}
 
 	thriftServer.server = &http.Server{Handler: &HTTPHandler{thriftServer}}
@@ -36,7 +46,9 @@ func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
 }
 
 func (p *THTTPServer) Listen() error {
-	go p.server.Serve(p.listener)
+	if p.server != nil && p.listener != nil {
+		go p.server.Serve(*p.listener)
+	}
 
 	return nil
 }
@@ -54,7 +66,11 @@ func (s *THTTPServer) Accept() (thrift.TTransport, error) {
 }
 
 func (p *THTTPServer) Close() error {
-	return p.listener.Close()
+	if p.listener != nil {
+		return (*p.listener).Close()
+	}
+
+	return nil
 }
 
 func (p *THTTPServer) Interrupt() error {

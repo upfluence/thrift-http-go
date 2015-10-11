@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	t, _ := thrift.NewTHttpPostClient("http://localhost:8080")
+	t, _ := thrift.NewTHttpPostClient("http://localhost:8080/foo")
 
 	cl := test.NewTestClientFactory(t, thrift.NewTBinaryProtocolFactoryDefault())
 

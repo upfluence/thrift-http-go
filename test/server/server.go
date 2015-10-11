@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 
 	"github.com/upfluence/goutils/thrift"
@@ -20,6 +21,10 @@ func main() {
 	f.WriteString(fmt.Sprintf("%d\n", os.Getpid()))
 	f.Close()
 
-	s, _ := http_thrift.NewTHTTPServer(":8080")
-	thrift.NewServer(test.NewTestProcessor(&Handler{}), s).Start()
+	mux := http.NewServeMux()
+
+	s, _ := http_thrift.NewTHTTPServerFromMux(mux, "/foo")
+	go thrift.NewServer(test.NewTestProcessor(&Handler{}), s).Start()
+
+	http.ListenAndServe(":8080", mux)
 }
