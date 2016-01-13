@@ -143,10 +143,12 @@ func (p *THTTPClient) doRequest() (*http.Response, error) {
 func (p *THTTPClient) Flush() error {
 	var (
 		err error
-		i   uint
+		i   uint = 1
 	)
 
-	for p.response == nil && i < p.retries {
+	p.response, err = p.doRequest()
+
+	for err != nil && i < p.retries {
 		p.response, err = p.doRequest()
 
 		if err != nil {
