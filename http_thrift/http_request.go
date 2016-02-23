@@ -17,7 +17,6 @@ func (d *THTTPRequest) IsOpen() bool {
 }
 
 func (d *THTTPRequest) Close() error {
-	d.lock <- true
 	return nil
 }
 
