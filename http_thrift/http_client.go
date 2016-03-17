@@ -158,5 +158,6 @@ func (p *THTTPClient) Flush() error {
 		}
 	}
 
+	p.requestBuffer.Reset()
 	return err
 }
