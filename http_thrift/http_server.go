@@ -10,7 +10,7 @@ import (
 )
 
 type THTTPServer struct {
-	server     *http.Server
+	server     http.Handler
 	listener   *net.Listener
 	deliveries chan *THTTPRequest
 
@@ -18,12 +18,16 @@ type THTTPServer struct {
 	interrupted bool
 }
 
+type Mux interface {
+	HandleFunc(string, func(http.ResponseWriter, *http.Request))
+}
+
 func NewTHTTPServerFromMux(
-	mux *http.ServeMux,
+	mux Mux,
 	pattern string,
 ) (*THTTPServer, error) {
 	server := &THTTPServer{deliveries: make(chan *THTTPRequest)}
-	mux.Handle(pattern, &HTTPHandler{server})
+	mux.HandleFunc(pattern, (&HTTPHandler{server}).ServeHTTP)
 
 	return server, nil
 }
@@ -40,14 +44,14 @@ func NewTHTTPServer(listenAddr string) (*THTTPServer, error) {
 		listener:   &l,
 	}
 
-	thriftServer.server = &http.Server{Handler: &HTTPHandler{thriftServer}}
+	thriftServer.server = &HTTPHandler{thriftServer}
 
 	return thriftServer, nil
 }
 
 func (p *THTTPServer) Listen() error {
 	if p.server != nil && p.listener != nil {
-		go p.server.Serve(*p.listener)
+		go http.Serve(*p.listener, p.server)
 	}
 
 	return nil
