@@ -1,0 +1,18 @@
+hash: 05afdfaae2a36a9228f32eb0432a1f75f4bd29055493d71e3536b1c30ac884a8
+updated: 2017-06-05T16:57:48.294175853-04:00
+imports:
+- name: github.com/cyberdelia/statsd
+  version: b1a41df90100a1421f276a4bacd664803a7b7f0b
+- name: github.com/upfluence/goutils
+  version: a5db45ad7183568f68d7681d7837633c73df9df1
+  subpackages:
+  - error_logger
+  - thrift
+  - tracing
+  - tracing/noop
+  - tracing/statsd
+- name: github.com/upfluence/thrift
+  version: f593378d777509a16cc0297622318972dfa8cd6e
+  subpackages:
+  - lib/go/thrift
+testImports: []

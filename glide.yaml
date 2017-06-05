@@ -1,0 +1,8 @@
+package: github.com/upfluence/thrift-http-go
+import:
+- package: github.com/upfluence/goutils
+  subpackages:
+  - thrift
+- package: github.com/upfluence/thrift
+  subpackages:
+  - lib/go/thrift
