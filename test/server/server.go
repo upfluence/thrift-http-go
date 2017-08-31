@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/upfluence/goutils/thrift"
+	"github.com/upfluence/pkg/thrift"
 	"github.com/upfluence/thrift-http-go/http_thrift"
 	"github.com/upfluence/thrift-http-go/test/test"
 )
